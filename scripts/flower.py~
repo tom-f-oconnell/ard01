@@ -1,0 +1,78 @@
+#!/usr/bin/env python
+#-----------------------------------------------------------------------
+# Ball-tracking data acq. & time sync w/ imaging
+# Author: Pavan Ramdya
+# Date: 150908
+# Modified:
+#-----------------------------------------------------------------------
+
+#Basic imports
+import serial   
+import rospy
+import time     
+import sys      
+import datetime
+import shutil
+
+# Define time stamp for filename
+def timeStamped(fname, fmt='vid_%Y-%m-%d-%H-%M-%S_{fname}'):
+    return datetime.datetime.now().strftime(fmt).format(fname=fname)        
+
+# Set filename parameters
+filename = timeStamped('opflow.txt')
+directory = '/home/scientist/pavan/ROSvideo/data/'
+
+# Define file moving
+def move(src, dest):
+    shutil.move(src,dest)
+
+# Define Sensor class
+class OpticFlowSensor(serial.Serial):
+    def __init__(self, port='/dev/ttyACM0'):
+        super(OpticFlowSensor,self).__init__(port=port,baudrate=115200) 
+        print('Initializing sensor')
+        time.sleep(3)   #required to give acquisition time to catch up
+        print('sensor initialized')
+
+    def start(self):
+        self.write('r')
+
+    def stop(self):
+        self.write('s')
+
+    def readData(self):
+        dataList = []
+        while self.inWaiting() > 0:
+            rawData = self.readline()
+            rawData = rawData.strip()
+            rawData = rawData.split(',')
+            try:
+                dataList.append([int(x) for x in rawData])
+            except:
+                pass
+        return dataList
+
+# Set optic flow read-out parameters
+port = '/dev/ttyACM0'
+sensor = OpticFlowSensor(port)
+
+# Main code
+if __name__ == '__main__':
+    sensor.start()
+    f=open(filename,'w')
+    while not rospy.is_shutdown():
+        data = sensor.readData()
+        for vals in data:
+            print(vals)
+            try:
+                f.write('{0} {1} {2} {3}\t'.format(vals[0], vals[1], vals[2], vals[3]))
+                f.write('{0}\n'.format(datetime.datetime.now()))
+            except IndexError:
+                pass
+
+    # Move time pulse data to data folder
+    oldName = '/home/scientist/.ros/' + filename
+    newName = directory + filename
+    move(oldName, newName)
+
+print 'done'
