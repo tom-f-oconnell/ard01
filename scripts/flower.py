@@ -15,8 +15,10 @@ import datetime
 import shutil
 from Phidgets.Devices.Analog import Analog
 
-print('STARTING OPTIC FLOW RECORDING SCRIPT')
+import pickle
 
+
+'''
 # Define time stamp for filename
 def timeStamped(fname, fmt='vid_%Y-%m-%d-%H-%M-%S_{fname}'):
     return datetime.datetime.now().strftime(fmt).format(fname=fname)        
@@ -59,8 +61,9 @@ class OpticFlowSensor(serial.Serial):
         return dataList
 
 # Set optic flow read-out parameters
-port = '/dev/ttyACM0'
+port = '/dev/ttyACM1'
 sensor = OpticFlowSensor(port)
+'''
 
 # Main code
 if __name__ == '__main__':
@@ -80,6 +83,7 @@ if __name__ == '__main__':
     bias = 2.5
     channel = 0 
     analog.setVoltage(channel, bias)
+    '''
 
     sensor.start()
     f = open(filename,'w')
@@ -87,11 +91,32 @@ if __name__ == '__main__':
     # to correct differences between sensors output, as relates to yaw
     # or otherwise just averages two sensor outputs
     # can also control gain here if necessary before controller
-    # RECORD THESE VALUES FOR ANY EXPERIMENTS RUN
+    # TODO RECORD THESE VALUES FOR ANY EXPERIMENTS RUN
+    # TODO load from pickle
+
+    # shouldn't matter for the purpose of yaw closed loop that non yaw
+    # axes are correlated when we might not expect them to be (because 
+    # part of ball is occluded, fully on axis rotation will confer some
+    # signal)
+    # BUT if yaw axes also suffer from similar problems, not sure
     calib1 = 0.5
     calib2 = 0.5
+    '''
 
     while not rospy.is_shutdown():
+
+        # for testing panel input voltage works to control
+        # panorama orientation
+        # switches every second, with a period of 5 seconds
+        mod = int(round(time.time())) % 5
+        v = 0.1 * mod
+        analog.setVoltage(channel, v)
+        print('v=' + str(v))
+        time.sleep(0.9)
+        #
+
+        '''
+        
         data = sensor.readData()
 
         # limit on how fast I can/should update the Phidget?
@@ -104,7 +129,14 @@ if __name__ == '__main__':
         out = yaw1 * calib1 + yaw2 * calib2 + bias
 
         # constraining to [0,5] volts
-        analog.setVoltage(channel, max(0.0, min(5.0,out)) )
+        #analog.setVoltage(channel, max(0.0, min(5.0,out)))
+
+        # for testing panel input voltage works to control
+        # panorama orientation
+        # switches every second, with a period of 5 seconds
+        mod = int(round(time.time())) % 5
+        analog.setVoltage(channel, 1.0 * mod)
+        #
         
         for vals in data:
             print(vals)
@@ -121,5 +153,7 @@ if __name__ == '__main__':
     oldName = '/home/flyperson/.ros/' + filename
     newName = directory + filename
     move(oldName, newName)
+
+        '''
 
 print('done')
